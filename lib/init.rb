@@ -15,15 +15,14 @@ def exclusive_substring(substring_target,exclusive_start, exclusive_end)
     return temp_string[1...ending_pos]
 end
 
+# Open Chrome browser
 browser = Watir::Browser.new :chrome
+
+# Navigate to Rotochamp home page and save page source
 browser.goto("http://www.rotochamp.com")
 page_source = browser.html
-#starting_pos = page_source.index("playerNames = [") + "playerNames = [".length
-#truncated_source = page_source[starting_pos..]
-#ending_pos = truncated_source.index("];")
-#player_names = truncated_source[1...ending_pos]
 
-# puts "Rotochamp player name JS object (#{player_names.length} characters):  #{player_names}"
+# Parse page source to extract playerNames JS object
 puts exclusive_substring(page_source, "playerNames = [", "];")
 
 #breakpoint = gets
