@@ -1,3 +1,4 @@
+require "csv"
 require "watir"
 
 # Only scrape values for Steamer, ATC, THE BAT, THE BAT X
@@ -27,8 +28,8 @@ def average_metric_values(metric_value_array=[])
     values = 0
     total_value = 0
     metric_value_array.each do |value|
-        total_value = total_value + value.to_f
-        values = values + 1
+        total_value += value
+        values += 1
     end
     (total_value / values).to_s
 end
@@ -42,13 +43,20 @@ def aggregate_custom_player_metrics(player_id="", player_name="", player_type="P
     player_type == "P" ? grid_columns = PITCHER_COLUMNS : grid_columns = HITTER_COLUMNS
     
     player_output = [player_id, player_name]
-    grid_columns.each do |column|
+    grid_columns.each_with_index do |column, i|
         metric_values = []
         PROJECTION_ROWS.each do |row|
             grid_cell = @browser.element(:xpath => "//*[@id=\"MainContent_grid#{projection_type}Projections\"]/tbody/tr[#{row}]/td[#{column}]")
-            metric_values << grid_cell.text.gsub(/[^0-9\.]/, "")
+            # Bump $ value for pitchers by 115%
+            if player_type == "P" && i == 6
+                cell_value = grid_cell.text.gsub(/[^0-9\.]/, "").to_f
+                cell_value += (cell_value.abs * 0.15)
+            else
+                cell_value = grid_cell.text.gsub(/[^0-9\.]/, "").to_f
+            end
+            metric_values << cell_value
         end
-        player_output << average_metric_values(metric_values)
+        player_output << average_metric_values(metric_values).to_s
     end
     player_output
 end
@@ -61,19 +69,30 @@ end
 page_source = @browser.html
 
 # Parse page source to extract playerNames JS object
-player_names = exclusive_substring(page_source, "playerNames = [", "];")
+all_player_names = exclusive_substring(page_source, "playerNames = [", "];")
 
 # Substitute characters to make string easier to parse
-player_names =  player_names.gsub("},", "|")
-player_names =  player_names.gsub("}", "")
-player_names =  player_names.gsub("{", "")
-player_names =  player_names.gsub(":", ",")
+all_player_names =  all_player_names.gsub("},", "|")
+all_player_names =  all_player_names.gsub("}", "")
+all_player_names =  all_player_names.gsub("{", "")
+all_player_names =  all_player_names.gsub(":", ",")
 
 
-player_array = player_names.split("|")
-# puts player_array
+all_player_array = all_player_names.split("|")
+# puts all_player_array
 puts aggregate_custom_player_metrics("592450", "Aaron Judge", "B")
-# aggregate_custom_player_metrics("669203", "Corbin Burnes", "P")
+#puts aggregate_custom_player_metrics("669203", "Corbin Burnes", "P")
+
+player_values_array = [
+    ["669203","Corbin Burnes","188.5","13.0","3.1275","1.0725","227.75","0.0","28.114625"],
+    ["592450","Aaron Judge","549.0","106.5","45.0","111.0","9.25","0.28025","48.5875"]
+]
+
+# Write custom player projections and values to a CSV file
+output_path = File.join(File.dirname(__FILE__), "../data/player_values.csv")
+CSV.open(output_path, "w") do |csv|
+    player_values_array.each { |ar| csv << ar }
+end
 
 
 breakpoint = gets
